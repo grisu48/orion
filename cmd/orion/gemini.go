@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -20,18 +22,20 @@ const (
 
 type GeminiHandler func(path string, conn io.ReadWriteCloser) error
 
-func ServerGemini(hostname string, bindAddr string, cert tls.Certificate, handler GeminiHandler) error {
-	// TLS session
-	cfg := &tls.Config{Certificates: []tls.Certificate{cert}, ServerName: hostname, MinVersion: tls.VersionTLS12}
-	listener, err := tls.Listen("tcp", bindAddr, cfg)
-	if err != nil {
-		return err
-	}
+type GeminiServer struct {
+	server net.Listener
+}
+
+func (srv *GeminiServer) Close() error {
+	return srv.server.Close()
+}
+
+func (srv *GeminiServer) Loop(handler GeminiHandler) error {
 	for {
-		conn, err := listener.Accept()
+		conn, err := srv.server.Accept()
 		if err != nil {
 			if err == io.EOF {
-				break
+				return nil
 			} else {
 				fmt.Fprintf(os.Stderr, "accept error: %s\n", err)
 				continue
@@ -39,34 +43,68 @@ func ServerGemini(hostname string, bindAddr string, cert tls.Certificate, handle
 		}
 		go handleConnection(conn, handler)
 	}
-	return nil
 }
 
-func sendResponse(conn io.ReadWriteCloser, statusCode int, meta string) error {
+func CreateGeminiServer(hostname string, bindAddr string, cert tls.Certificate) (GeminiServer, error) {
+	var srv GeminiServer
+	var err error
+	// TLS session
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}, ServerName: hostname, MinVersion: tls.VersionTLS12}
+	srv.server, err = tls.Listen("tcp", bindAddr, cfg)
+	return srv, err
+}
+
+func SendResponse(conn io.WriteCloser, statusCode int, meta string) error {
 	header := fmt.Sprintf("%d %s\r\n", statusCode, meta)
 	_, err := conn.Write([]byte(header))
 	return err
 }
 
+func SendContent(conn io.WriteCloser, content []byte, meta string) error {
+	if err := SendResponse(conn, StatusSuccess, meta); err != nil {
+		return err
+	}
+	_, err := conn.Write(content)
+	return err
+}
+
+// sanitize an input path, ignores all characters that are not alphanumeric or a path separator /
+func sanitizePath(path string) string {
+	var ret string
+	chars := []rune(path)
+	for _, c := range chars {
+		if unicode.IsLetter(c) || unicode.IsDigit(c) || c == '/' || c == '.' {
+			ret += string(c)
+		}
+	}
+	return ret
+}
+
 func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
 	defer conn.Close()
 
+	// 1500 matches the typical MTU size
 	buf := make([]byte, 1500)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return err
 	}
 	if n > 1024 {
-		return sendResponse(conn, statusPermanentFailure, "Request exceeds maximum permitted length")
+		return SendResponse(conn, StatusPermanentFailure, "Request exceeds maximum permitted length")
 	}
 	// Parse incoming request URL.
-	reqURL, err := url.Parse(string(buf))
+	surl := strings.TrimSpace(string(buf[:n]))
+	reqURL, err := url.Parse(surl)
 	if err != nil {
-		return sendResponse(conn, statusPermanentFailure, "URL incorrectly formatted")
+		return SendResponse(conn, StatusPermanentFailure, "URL incorrectly formatted")
 	}
 
-	// If the URL ends with a '/' character, assume that the user wants the index.gmi
-	// file in the corresponding directory.
+	// Do not allow traverse paths
+	if strings.Contains(reqURL.Path, "..") {
+		return SendResponse(conn, StatusPermanentFailure, "Path traverse not supported by this server")
+	}
+
+	// If the URL ends with a '/', serve the index.gmi
 	var reqPath string
 	if strings.HasSuffix(reqURL.Path, "/") || reqURL.Path == "" {
 		reqPath = filepath.Join(reqURL.Path, "index.gmi")
@@ -74,6 +112,7 @@ func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
 		reqPath = reqURL.Path
 	}
 
-	cleanPath := filepath.Clean(reqPath)
+	cleanPath := sanitizePath(filepath.Clean(reqPath))
+
 	return handler(cleanPath, conn)
 }
