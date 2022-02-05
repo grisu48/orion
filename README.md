@@ -39,6 +39,8 @@ It's recommended to place your certificates in the `/conf` direcory and use the 
     Certfile = /conf/orion.crt
     Keyfile = /conf/orion.key
 
+Note: Use the `chroot` setting in containers for additional security.
+
 ## Credits
 
 * This project was inspired by the [titan2](https://gitlab.com/lostleonardo/titan2) minimalistic Gemini server written by lostleonardo.

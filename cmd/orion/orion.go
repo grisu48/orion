@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 )
@@ -40,6 +41,17 @@ func tryLoadConfig(filename string) {
 	}
 }
 
+func chroot(dir string) error {
+	runtime.LockOSThread()
+	if err := syscall.Chroot(dir); err != nil {
+		return err
+	}
+	if err := os.Chdir("/"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	config.SetDefaults()
 
@@ -57,6 +69,29 @@ func main() {
 		tryLoadConfig("./orion.conf")
 	}
 
+	// Load keys before chroot
+	if !FileExists(config.Keyfile) {
+		fmt.Fprintf(os.Stderr, "Server key file not found: %s\n", config.Keyfile)
+		os.Exit(1)
+	}
+	if !FileExists(config.CertFile) {
+		fmt.Fprintf(os.Stderr, "Certificate file not found: %s\n", config.CertFile)
+		os.Exit(1)
+	}
+	cert, err := tls.LoadX509KeyPair(config.CertFile, config.Keyfile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "certificate error: %s\n", err)
+		os.Exit(1)
+	}
+
+	// Chroot, if configured to do so
+	if config.Chroot != "" {
+		if err := chroot(config.Chroot); err != nil {
+			fmt.Fprintf(os.Stderr, "chroot failed: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Make the content dir absolute
 	if !strings.HasPrefix(config.ContentDir, "/") {
 		workDir, err := os.Getwd()
@@ -71,16 +106,6 @@ func main() {
 		config.ContentDir += "/"
 	}
 
-	// Check settings
-	if !FileExists(config.Keyfile) {
-		fmt.Fprintf(os.Stderr, "Server key file not found: %s\n", config.Keyfile)
-		os.Exit(1)
-	}
-	if !FileExists(config.CertFile) {
-		fmt.Fprintf(os.Stderr, "Certificate file not found: %s\n", config.CertFile)
-		os.Exit(1)
-	}
-
 	// Content warnings should point user at wrong configuration early in the program
 	if !DirectoryExists(config.ContentDir) {
 		fmt.Fprintf(os.Stderr, "WARNING: Content directory does not exist: %s\n", config.ContentDir)
@@ -91,11 +116,6 @@ func main() {
 	}
 
 	// Setup gemini server
-	cert, err := tls.LoadX509KeyPair(config.CertFile, config.Keyfile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "certificate error: %s\n", err)
-		os.Exit(1)
-	}
 	server, err := CreateGeminiServer(config.Hostname, config.BindAddr, cert)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %s\n", err)

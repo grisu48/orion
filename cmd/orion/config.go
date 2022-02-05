@@ -13,6 +13,7 @@ type Config struct {
 	Keyfile    string // Key file
 	BindAddr   string // Optional binding address
 	ContentDir string // Gemini content directory to serve
+	Chroot     string // chroot directory, if configured
 }
 
 func (cf *Config) SetDefaults() {
@@ -53,6 +54,8 @@ func (cf *Config) LoadConfigFile(filename string) error {
 			cf.BindAddr = value
 		} else if name == "contentdir" {
 			cf.ContentDir = value
+		} else if name == "chroot" {
+			cf.Chroot = value
 		} else {
 			return fmt.Errorf("Unknown setting in line %d", lineCount)
 		}
