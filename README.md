@@ -1,12 +1,16 @@
 # orion
 
-**orion is still alpha** *It is mostly working, but expect it to contain bugs and possible security holes.*
+![Github workflow badge](https://github.com/grisu48/orion/workflows/orion/badge.svg)
 
-orion is a minimalistic gemini server written in go with the aim of being easy-to-use
+**orion is still alpha** *It mostly works, but expect some bugs and possible security issues.*
+
+orion is a minimalistic gemini server written in go with the aim of being easy-to-use and minimal requirements.
+
+Requirements: `go >= 1.14`
 
 ## Usage
 
-Compile the `orion` binary:
+Compile the `orion` binary
 
     make
 
