@@ -12,7 +12,8 @@ Requirements: `go >= 1.14`
 
 Compile the `orion` binary
 
-    make
+    make               # Default build
+    make static        # Build static binary
 
 Then edit the configuration file `orion.conf` to your wishes and launch the program
 
