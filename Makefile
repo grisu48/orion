@@ -6,7 +6,7 @@ orion: cmd/orion/orion.go cmd/orion/gemini.go cmd/orion/config.go
 	go build -o $@ $^
 
 static: cmd/orion/orion.go cmd/orion/gemini.go cmd/orion/config.go
-	CGO_ENABLED=0 go build -o orion $^
+	CGO_ENABLED=0 GOARGS="-buildmode=pie" go build -o orion $^
 
 cert:
 	openssl genrsa -out orion.key 2048
