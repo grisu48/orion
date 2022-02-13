@@ -74,6 +74,7 @@ func setgid(gid int) error {
 
 func main() {
 	config.SetDefaults()
+	config.LoadEnv()
 
 	customConfigFile := flag.String("config", "", "Configuration file")
 	flag.Parse()

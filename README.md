@@ -18,6 +18,8 @@ Then edit the configuration file `orion.conf` to your wishes and launch the prog
 
     ./orion -config orion.conf
 
+`orion` can also be configured via [environmental variables](variables.md), which should be particularly useful for containerized applications.
+
 ### Create self-signed certificates
 
 To create self-signed certificates for quick testing, you can use the following recipe
@@ -44,6 +46,8 @@ It's recommended to place your certificates in the `/conf` direcory and use the 
     Keyfile = /conf/orion.key
 
 Note: Use the `chroot` setting in containers for additional security.
+
+See also the supported [environmental variables](variables.md) for additional configuration possibilities.
 
 ## Credits
 

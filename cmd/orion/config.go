@@ -27,6 +27,38 @@ func (cf *Config) SetDefaults() {
 	cf.ContentDir = "gemini/"
 }
 
+// getenv reads a given environmental variable and returns it's value if present or defval if not present or empty
+func getenv(key string, defval string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return defval
+	}
+	return val
+}
+
+func getenv_i(key string, defval int) int {
+	val := os.Getenv(key)
+	if val == "" {
+		return defval
+	} else if ret, err := strconv.Atoi(val); err != nil {
+		return defval
+	} else {
+		return ret
+	}
+}
+
+// Load environmental variables
+func (cf *Config) LoadEnv() {
+	cf.Hostname = getenv("ORION_HOSTNAME", cf.Hostname)
+	cf.CertFile = getenv("ORION_CERTFILE", cf.CertFile)
+	cf.Keyfile = getenv("ORION_KEYFILE", cf.Keyfile)
+	cf.BindAddr = getenv("ORION_BIND", cf.BindAddr)
+	cf.ContentDir = getenv("ORION_CONTENTDIR", cf.ContentDir)
+	cf.Chroot = getenv("ORION_CHROOT", cf.Chroot)
+	cf.Uid = getenv_i("ORION_UID", cf.Uid)
+	cf.Gid = getenv_i("ORION_UID", cf.Gid)
+}
+
 func (cf *Config) LoadConfigFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
