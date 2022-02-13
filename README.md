@@ -1,8 +1,8 @@
 # orion
 
-**Alpha state package!** *It has not been hardened and contains probably bugs, but it is working.*
+**orion is still alpha** *It is mostly working, but expect it to contain bugs and possible security holes.*
 
-orion is a secure yet minimalistic gemini server written in go
+orion is a minimalistic gemini server written in go with the aim of being easy-to-use
 
 ## Usage
 
