@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 )
 
 const (
@@ -69,15 +68,11 @@ func SendContent(conn io.WriteCloser, content []byte, meta string) error {
 }
 
 // sanitize an input path, ignores all characters that are not alphanumeric or a path separator /
-func sanitizePath(path string) string {
-	var ret string
-	chars := []rune(path)
-	for _, c := range chars {
-		if unicode.IsLetter(c) || unicode.IsDigit(c) || c == '/' || c == '.' {
-			ret += string(c)
-		}
+func sanitizePath(path string) (string, error) {
+	if strings.Contains(path, "..") {
+		return "", fmt.Errorf("traverse path not allowed")
 	}
-	return ret
+	return path, nil
 }
 
 func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
@@ -99,11 +94,6 @@ func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
 		return SendResponse(conn, StatusPermanentFailure, "URL incorrectly formatted")
 	}
 
-	// Do not allow traverse paths
-	if strings.Contains(reqURL.Path, "..") {
-		return SendResponse(conn, StatusPermanentFailure, "Path traverse not supported by this server")
-	}
-
 	// If the URL ends with a '/', serve the index.gmi
 	var reqPath string
 	if strings.HasSuffix(reqURL.Path, "/") || reqURL.Path == "" {
@@ -112,7 +102,11 @@ func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
 		reqPath = reqURL.Path
 	}
 
-	cleanPath := sanitizePath(filepath.Clean(reqPath))
+	// Note: filepath.Clean prevents path traversal attacks
+	cleanPath, err := sanitizePath(filepath.Clean(reqPath))
+	if err != nil {
+		return SendResponse(conn, StatusPermanentFailure, "Invalid path")
+	}
 
 	return handler(cleanPath, conn)
 }
