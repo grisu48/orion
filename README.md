@@ -10,6 +10,23 @@ Requirements: `go >= 1.14`
 
 ## Usage
 
+The most simple usage on Linux is to download the pre-build binary from the current releases and to start with your own [orion.conf](orion.conf) and this binary:
+
+    ./orion -config orion.conf
+
+The recommended way of running `orion` is as a `podman` container.
+
+### Run a podman-docker container
+
+Assuming you have your configuration files in `/srv/orion/conf` and your data directory in `/srv/orion/data`:
+
+    docker run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 grisu48/orion
+    podman run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 --memory 128M grisu48/orion
+
+Make sure that the configuration file `/srv/orion/conf/orion.conf` exists and is configured to your needs. Checkout the example [orion.conf](orion.conf) in this directory.
+
+### Build and run the binary
+
 Compile the `orion` binary
 
     make               # Default build
@@ -27,7 +44,8 @@ To create self-signed certificates for quick testing, you can use the following 
 
     make cert
 
-### podman/docker container
+
+### Build podman/docker container
 
 `orion` is able to launch from a podman/docker container, however you need to first build the container yourself.
 
