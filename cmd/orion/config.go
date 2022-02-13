@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,8 @@ type Config struct {
 	BindAddr   string // Optional binding address
 	ContentDir string // Gemini content directory to serve
 	Chroot     string // chroot directory, if configured
+	Uid        int    // If not 0 the program will switch to this user id after initialization
+	Gid        int    // If not 0 the program will switch to this group id after initialization
 }
 
 func (cf *Config) SetDefaults() {
@@ -56,6 +59,16 @@ func (cf *Config) LoadConfigFile(filename string) error {
 			cf.ContentDir = value
 		} else if name == "chroot" {
 			cf.Chroot = value
+		} else if name == "uid" {
+			cf.Uid, err = strconv.Atoi(value)
+			if err != nil || cf.Uid < 0 || cf.Uid > 65536 {
+				return fmt.Errorf("Invalid uid in line %d", lineCount)
+			}
+		} else if name == "gid" {
+			cf.Gid, err = strconv.Atoi(value)
+			if err != nil || cf.Gid < 0 || cf.Gid > 65536 {
+				return fmt.Errorf("Invalid gid in line %d", lineCount)
+			}
 		} else {
 			return fmt.Errorf("Unknown setting in line %d", lineCount)
 		}

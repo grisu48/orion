@@ -52,6 +52,26 @@ func chroot(dir string) error {
 	return nil
 }
 
+func setuid(uid int) error {
+	if err := syscall.Setuid(uid); err != nil {
+		return err
+	}
+	if syscall.Getuid() != uid {
+		return fmt.Errorf("getuid != %d", uid)
+	}
+	return nil
+}
+
+func setgid(gid int) error {
+	if err := syscall.Setgid(gid); err != nil {
+		return err
+	}
+	if syscall.Getgid() != gid {
+		return fmt.Errorf("getgid != %d", gid)
+	}
+	return nil
+}
+
 func main() {
 	config.SetDefaults()
 
@@ -84,12 +104,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	/* Drop privileges here*/
+
 	// Chroot, if configured to do so
 	if config.Chroot != "" {
 		if err := chroot(config.Chroot); err != nil {
 			fmt.Fprintf(os.Stderr, "chroot failed: %s\n", err)
 			os.Exit(1)
 		}
+	}
+	// Setuid and setgid if configured
+	if config.Gid > 0 {
+		if err := setgid(config.Gid); err != nil {
+			fmt.Fprintf(os.Stderr, "setgid failed: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("gid = %d\n", syscall.Getgid())
+	}
+	if config.Uid > 0 {
+		if err := setuid(config.Uid); err != nil {
+			fmt.Fprintf(os.Stderr, "setuid failed: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("uid = %d\n", syscall.Getuid())
 	}
 
 	// Make the content dir absolute
