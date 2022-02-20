@@ -18,4 +18,5 @@ jobs:
           go-version: '1.14'
       - name: Compile binaries
         run: make
+      - name: Run tests
         run: make test
