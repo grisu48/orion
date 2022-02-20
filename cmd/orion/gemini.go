@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -25,23 +26,40 @@ type GeminiServer struct {
 	server net.Listener
 }
 
+type GeminiRequest struct {
+	conn   *tls.Conn
+	Status int
+	Meta   string
+}
+
 func (srv *GeminiServer) Close() error {
 	return srv.server.Close()
 }
 
 func (srv *GeminiServer) Loop(handler GeminiHandler) error {
 	for {
-		conn, err := srv.server.Accept()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			} else {
-				fmt.Fprintf(os.Stderr, "accept error: %s\n", err)
-				continue
+		if err := srv.SingleLoop(handler); err != nil {
+			if err != nil {
+				if err != io.EOF {
+					fmt.Fprintf(os.Stderr, "accept error: %s\n", err)
+					return nil
+				}
+				return err
 			}
 		}
-		go handleConnection(conn, handler)
 	}
+}
+
+func (srv *GeminiServer) SingleLoop(handler GeminiHandler) error {
+	conn, err := srv.server.Accept()
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	go handleConnection(conn, handler)
+	return nil
 }
 
 func CreateGeminiServer(hostname string, bindAddr string, cert tls.Certificate) (GeminiServer, error) {
@@ -109,4 +127,64 @@ func handleConnection(conn io.ReadWriteCloser, handler GeminiHandler) error {
 	}
 
 	return handler(cleanPath, conn)
+}
+
+func Gemini(remote string, path string) (GeminiRequest, error) {
+	req := GeminiRequest{conn: nil, Status: 0, Meta: ""}
+	// Accepts self-signing requests for now. A better solution would be to implement TOFU
+	config := tls.Config{InsecureSkipVerify: true}
+	conn, err := tls.Dial("tcp", remote, &config)
+	if err != nil {
+		return req, err
+	}
+	req.conn = conn
+	req.conn.Write([]byte(path))
+	return req, nil
+
+}
+
+func (req *GeminiRequest) Close() {
+	if req.conn != nil {
+		req.conn.Close()
+	}
+}
+
+func (req *GeminiRequest) readLine() (string, error) {
+	buf := make([]byte, 1025)
+	for i := 0; i < 1024; i++ {
+		if _, err := req.conn.Read(buf[i : i+1]); err != nil {
+			return "", err
+		}
+		if buf[i] == '\n' {
+			line := string(buf[:i])
+			return strings.TrimSpace(line), nil // TrimSpace necessary for the \r character
+		}
+	}
+	return "", fmt.Errorf("Response too long")
+}
+
+// Do performs the request and sets the internal Status and Meta fields
+func (req *GeminiRequest) Do() error {
+	line, err := req.readLine()
+	if err != nil {
+		return err
+	}
+	// Get STATUS and META
+	i := strings.Index(line, " ")
+	if i < 0 {
+		return fmt.Errorf("Invalid response")
+	}
+	req.Status, err = strconv.Atoi(line[:i])
+	if err != nil {
+		return fmt.Errorf("Invalid response code")
+	}
+	if i < len(line)-1 {
+		req.Meta = line[i+1:]
+	}
+	return nil
+}
+
+// Read reads from the buffer
+func (req *GeminiRequest) Read(buf []byte) (int, error) {
+	return req.conn.Read(buf)
 }
