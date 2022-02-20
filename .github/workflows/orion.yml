@@ -18,3 +18,4 @@ jobs:
           go-version: '1.14'
       - name: Compile binaries
         run: make
+        run: make test

@@ -12,6 +12,9 @@ cert:
 	openssl genrsa -out orion.key 2048
 	openssl req -x509 -nodes -days 3650 -key orion.key -out orion.crt
 
+test:
+	go test ./...
+
 # Container recipies
 docker:
 	docker build . -t feldspaten.org/orion
