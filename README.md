@@ -2,21 +2,33 @@
 
 ![Github workflow badge](https://github.com/grisu48/orion/workflows/orion/badge.svg)
 
-**orion is still alpha** *It mostly works, but expect some bugs and possible security issues.*
+**orion is still in development** *However: It works. Feedback, Issues and Pull request are very welcome.*
 
-orion is a minimalistic gemini server written in go with the aim of being easy-to-use and minimal requirements.
+orion is a minimalistic gemini server written in go with the goal of being easy-to-use and to have minimal requirements as well as a small footprint.
 
 Requirements: `go >= 1.14`
 
 ## Usage
 
-The most simple usage on Linux is to download the pre-build binary from the current releases and to start with your own [orion.conf](orion.conf) and this binary:
+Running `orion` is as simple as
 
     ./orion -config orion.conf
 
-The recommended way of running `orion` is as a `podman` container.
+`orion` requires three things to work properly
 
-### Run a podman-docker container
+* A valid configuration file (see [orion.conf](orion.conf))
+* A TLS certificate and key file (see below)
+* Your awesome gemini content (See `ContentDir` in the `orion.conf`)
+
+A example TLS certificate and key file is required. See the [Create self-signed certificate](#create-self-signed-certificates) section below.
+
+The recommended way of running `orion` is as a `podman` container (See [below](#run-a-podman-docker-container)).
+
+### Pre-build binaries
+
+Pre-build binaries for Linux are available on the [releases page](https://github.com/grisu48/orion/releases).
+
+### Run a podman/docker container
 
 Assuming you have your configuration files in `/srv/orion/conf` and your data directory in `/srv/orion/data`:
 
@@ -24,6 +36,10 @@ Assuming you have your configuration files in `/srv/orion/conf` and your data di
     podman run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 --memory 128M grisu48/orion
 
 Make sure that the configuration file `/srv/orion/conf/orion.conf` exists and is configured to your needs. Checkout the example [orion.conf](orion.conf) in this directory.
+
+Also ensure that the certificate and key files are located in `/srv/orion/conf/` and configured properly in your `orion.conf`. See the section [create self-signed certificate](#create-self-signed-certificates) for more information.
+
+`orion` can also be configured via [environmental variables](variables.md), which should be particularly useful for containerized applications.
 
 ### Build and run the binary
 
@@ -36,14 +52,23 @@ Then edit the configuration file `orion.conf` to your wishes and launch the prog
 
     ./orion -config orion.conf
 
-`orion` can also be configured via [environmental variables](variables.md), which should be particularly useful for containerized applications.
-
 ### Create self-signed certificates
 
-To create self-signed certificates for quick testing, you can use the following recipe
+> Disclaimer:
+> A self-signed certificate allows for a whole class of attack scenarios e.g. man-in-the-middle attacks without additional safety guards like TOFU. Be aware that a self-signed certificate does not give you the same protection as a signed certificate by a trusted CA.
+
+That being said, in the gemini universe self-signed certificated are kind of the common use case.
+
+To create self-signed certificates for quick testing, you can use the following make recipe:
 
     make cert
 
+Alternatively you can also run the openssl commands directly:
+
+```bash
+openssl genrsa -out orion.key 2048
+openssl req -x509 -nodes -days 3650 -key orion.key -out orion.crt
+```
 
 ### Build podman/docker container
 
