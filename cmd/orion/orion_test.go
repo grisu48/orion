@@ -92,15 +92,14 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error reading from gemini server: %s", err)
 		return
-	} else {
-		// Check response
-		resp := strings.TrimSpace(string(buf[:n]))
-		if resp != "test OK" {
-			fmt.Errorf("Invalid response from gemini server")
-			return
-		}
-		fmt.Println("Response OK")
 	}
+	// Check response
+	resp := strings.TrimSpace(string(buf[:n]))
+	if resp != "test OK" {
+		t.Errorf("Invalid response from gemini server")
+		return
+	}
+	fmt.Println("Response OK")
 	defer req.Close()
 }
 
