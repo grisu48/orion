@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -188,21 +187,46 @@ func geminiHandle(path string, conn io.ReadWriteCloser) error {
 		}
 	} else {
 		defer f.Close()
+		// Send file segment by segment (4k segments)
+		buf := make([]byte, 4096)
 
-		// TODO: Replace by proper stream handling. For now it's good because I only serve small files
-		content, err := ioutil.ReadAll(f)
-		if err != nil {
-			log.Printf("ERR: File read error: %s", err)
-			return SendResponse(conn, StatusPermanentFailure, "Resource error")
-		}
-
-		// Get MIME
-		var mime string
+		// MIME handling on first segment if required
 		if strings.HasSuffix(path, ".gmi") {
-			mime = "text/gemini; lang=en; charset=utf-8"
+			mime := "text/gemini; lang=en; charset=utf-8"
+			if err := SendResponse(conn, StatusSuccess, mime); err != nil {
+				return err
+			}
 		} else {
-			mime = http.DetectContentType(content)
+			n, err := f.Read(buf)
+			if err != nil {
+				log.Printf("ERR: File read error: %s", err)
+				return SendResponse(conn, StatusPermanentFailure, "Resource error")
+			}
+			if n == 0 {
+				return SendResponse(conn, StatusSuccess, "")
+			}
+			mime := http.DetectContentType(buf[:n])
+			if err := SendResponse(conn, StatusSuccess, mime); err != nil {
+				return err
+			}
+			if _, err := conn.Write(buf[:n]); err != nil {
+				return err
+			}
 		}
-		return SendContent(conn, content, mime)
+
+		// Send file
+		for {
+			n, err := f.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if _, err := conn.Write(buf[:n]); err != nil {
+				return err
+			}
+		}
 	}
+	return nil
 }
