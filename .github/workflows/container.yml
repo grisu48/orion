@@ -3,8 +3,8 @@
 name: Create and publish Container
 
 'on':
-  push:
-    branches: ['release']
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
