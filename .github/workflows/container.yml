@@ -11,7 +11,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  dockerhub image:
+  dockerhub-image:
     runs-on: ubuntu-latest
     steps:
       -
@@ -38,7 +38,7 @@ jobs:
           push: true
           tags: grisu48/orion:latest
 
-  GitHub image:
+  github-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
