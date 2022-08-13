@@ -2,11 +2,11 @@
 
 ![Github workflow badge](https://github.com/grisu48/orion/workflows/orion/badge.svg)
 
-**orion is still in development** *However: It works. Feedback, Issues and Pull request are very welcome.*
-
 orion is a minimalistic gemini server written in go with the goal of being easy-to-use and to have minimal requirements as well as a small footprint.
 
 Requirements: `go >= 1.14`
+
+The project is post-alpha and runs stable now. Issues, Feedback and Pull-Requests are still very welcome 😃
 
 ## Usage
 
@@ -32,8 +32,8 @@ Pre-build binaries for Linux are available on the [releases page](https://github
 
 Assuming you have your configuration files in `/srv/orion/conf` and your data directory in `/srv/orion/data`:
 
-    docker run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 grisu48/orion
-    podman run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 --memory 128M grisu48/orion
+    docker run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 ghcr.io/grisu48/orion
+    podman run -d --name orion -v /srv/orion/conf:/conf -v /srv/orion/data:/data -p 1965:1965 --memory 128M ghcr.io/grisu48/orion
 
 Make sure that the configuration file `/srv/orion/conf/orion.conf` exists and is configured to your needs. Checkout the example [orion.conf](orion.conf) in this directory.
 
