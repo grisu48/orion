@@ -1,0 +1,7 @@
+# example
+
+Congratulations! If you see this text then your capsule is working properly :-)
+
+## Pages
+
+=> gemini://feldspaten.org/pages/orion.gmi Orion on feldspaten

@@ -73,7 +73,7 @@ func TestServer(t *testing.T) {
 		}
 	}()
 
-	// Do server request
+	// Perform server request
 	req, err := Gemini("localhost:1965", "/")
 	if err != nil {
 		t.Errorf("Error initializing gemini request: %s", err)
