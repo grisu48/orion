@@ -1,17 +1,24 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var config Config
@@ -71,11 +78,46 @@ func setgid(gid int) error {
 	return nil
 }
 
+func generateCertificate() (tls.Certificate, error) {
+	// Always use crypto/rand!
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPem := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+
+	tml := x509.Certificate{
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(5, 0, 0), // 5 years
+		SerialNumber: big.NewInt(123456),
+		Subject: pkix.Name{
+			CommonName:   config.Hostname,
+			Organization: []string{"orion Inc."},
+		},
+		BasicConstraintsValid: true,
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, &tml, &tml, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	// Generate a pem block with the certificate
+	certPem := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert,
+	})
+	tlsCert, err := tls.X509KeyPair(certPem, keyPem)
+	return tlsCert, err
+}
+
 func main() {
 	config.SetDefaults()
 	config.LoadEnv()
 
 	customConfigFile := flag.String("config", "", "Configuration file")
+	genCert := flag.Bool("gen-cert", false, "Generate certificate on startup")
 	flag.Parse()
 
 	if *customConfigFile != "" {
@@ -89,19 +131,30 @@ func main() {
 		tryLoadConfig("./orion.conf")
 	}
 
-	// Load keys before chroot
-	if !FileExists(config.Keyfile) {
-		fmt.Fprintf(os.Stderr, "Server key file not found: %s\n", config.Keyfile)
-		os.Exit(1)
-	}
-	if !FileExists(config.CertFile) {
-		fmt.Fprintf(os.Stderr, "Certificate file not found: %s\n", config.CertFile)
-		os.Exit(1)
-	}
-	cert, err := tls.LoadX509KeyPair(config.CertFile, config.Keyfile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "certificate error: %s\n", err)
-		os.Exit(1)
+	var cert tls.Certificate
+	var err error
+	if *genCert {
+		fmt.Fprintf(os.Stderr, "Generate server certificate ... \n")
+		cert, err = generateCertificate()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error generating tls certificate: %s\n", err)
+			os.Exit(2)
+		}
+	} else {
+		// Load keys before chroot
+		if !FileExists(config.Keyfile) {
+			fmt.Fprintf(os.Stderr, "Server key file not found: %s\n", config.Keyfile)
+			os.Exit(1)
+		}
+		if !FileExists(config.CertFile) {
+			fmt.Fprintf(os.Stderr, "Certificate file not found: %s\n", config.CertFile)
+			os.Exit(1)
+		}
+		cert, err = tls.LoadX509KeyPair(config.CertFile, config.Keyfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "certificate error: %s\n", err)
+			os.Exit(1)
+		}
 	}
 
 	/* Drop privileges here*/
@@ -213,8 +266,7 @@ func geminiHandle(path string, conn io.ReadWriteCloser) error {
 				return err
 			}
 		}
-
-		// Send file
+		// Send remaining file content
 		for {
 			n, err := f.Read(buf)
 			if err != nil {
